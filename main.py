@@ -307,7 +307,7 @@ class JimengServicePlugin(Star):
         self._save_config()
         yield event.plain_result(f"自动启动状态已更新为 {self.auto_start}。")
 
-    @jimeng.command_group("session")
+    @jimeng.group("session")
     def jimeng_session(self):
         """管理 Jimeng session token。"""
         pass
