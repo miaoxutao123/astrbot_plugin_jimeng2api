@@ -13,9 +13,11 @@ from astrbot.core.message.components import Image, Plain, Reply
 try:
     from .pyjimeng.errors import JimengAPIError
     from .pyjimeng.jimeng_service import JimengAPIService
+    from .pyjimeng import constants as jimeng_constants
 except ImportError:  # pragma: no cover - fallback for direct execution
     from pyjimeng.errors import JimengAPIError  # type: ignore
     from pyjimeng.jimeng_service import JimengAPIService  # type: ignore
+    from pyjimeng import constants as jimeng_constants  # type: ignore
 
 
 @register(
@@ -35,6 +37,12 @@ class JimengServicePlugin(Star):
         self.image_defaults: Dict[str, Union[str, float]] = {}
         self.video_defaults: Dict[str, Union[str, int]] = {}
         self.service: Optional[JimengAPIService] = None
+        self._supported_image_models: Tuple[str, ...] = tuple(
+            jimeng_constants.IMAGE_MODEL_MAP.keys()
+        )
+        self._supported_video_models: Tuple[str, ...] = tuple(
+            jimeng_constants.VIDEO_MODEL_MAP.keys()
+        )
         self._load_config()
 
     async def initialize(self) -> None:
@@ -169,6 +177,10 @@ class JimengServicePlugin(Star):
             options.get("sample"), float(self.image_defaults["sample_strength"])
         )
         session_override = self._parse_session_override(options.get("session"))
+        model_error = self._validate_image_model(model)
+        if model_error:
+            yield event.plain_result(model_error)
+            return
 
         media_results, error_message, headline = self._generate_image_with_service(
             service,
@@ -231,6 +243,10 @@ class JimengServicePlugin(Star):
             options.get("sample"), float(self.image_defaults["sample_strength"])
         )
         session_override = self._parse_session_override(options.get("session"))
+        model_error = self._validate_image_model(model)
+        if model_error:
+            yield event.plain_result(model_error)
+            return
 
         media_results, error_message, headline = self._compose_image_with_service(
             service,
@@ -274,6 +290,10 @@ class JimengServicePlugin(Star):
         resolution = options.get("resolution", self.video_defaults["resolution"])
         response_format = options.get("response", self.video_defaults["response_format"])
         session_override = self._parse_session_override(options.get("session"))
+        model_error = self._validate_video_model(model)
+        if model_error:
+            yield event.plain_result(model_error)
+            return
 
         media_results, error_message, headline = self._generate_video_with_service(
             service,
@@ -428,6 +448,10 @@ class JimengServicePlugin(Star):
             return
 
         model_value = model or self.image_defaults["model"]
+        model_error = self._validate_image_model(model_value)
+        if model_error:
+            yield event.plain_result(model_error)
+            return
         ratio_value = ratio or self.image_defaults["ratio"]
         resolution_value = resolution or self.image_defaults["resolution"]
         response_format_value = response_format or self.image_defaults["response_format"]
@@ -521,6 +545,10 @@ class JimengServicePlugin(Star):
             return
 
         model_value = model or self.image_defaults["model"]
+        model_error = self._validate_image_model(model_value)
+        if model_error:
+            yield event.plain_result(model_error)
+            return
         ratio_value = ratio or self.image_defaults["ratio"]
         resolution_value = resolution or self.image_defaults["resolution"]
         response_format_value = response_format or self.image_defaults["response_format"]
@@ -592,6 +620,10 @@ class JimengServicePlugin(Star):
             return
 
         model_value = model or self.video_defaults["model"]
+        model_error = self._validate_video_model(model_value)
+        if model_error:
+            yield event.plain_result(model_error)
+            return
         width_value = self._coerce_int(width, int(self.video_defaults["width"]))
         height_value = self._coerce_int(height, int(self.video_defaults["height"]))
         resolution_value = resolution or self.video_defaults["resolution"]
@@ -694,8 +726,14 @@ class JimengServicePlugin(Star):
         ]
         self.auto_start = bool(cfg.get("auto_start", False))
         sample_default = self._coerce_float(cfg.get("image_sample_strength"), 0.5)
+        image_model = cfg.get("image_model", jimeng_constants.DEFAULT_IMAGE_MODEL)
+        if image_model not in self._supported_image_models:
+            image_model = jimeng_constants.DEFAULT_IMAGE_MODEL
+        video_model = cfg.get("video_model", jimeng_constants.DEFAULT_VIDEO_MODEL)
+        if video_model not in self._supported_video_models:
+            video_model = jimeng_constants.DEFAULT_VIDEO_MODEL
         self.image_defaults = {
-            "model": cfg.get("image_model", "jimeng-4.0"),
+            "model": image_model,
             "ratio": cfg.get("image_ratio", "1:1"),
             "resolution": cfg.get("image_resolution", "1k"),
             "response_format": cfg.get("image_response_format", "url"),
@@ -703,7 +741,7 @@ class JimengServicePlugin(Star):
             "sample_strength": sample_default,
         }
         self.video_defaults = {
-            "model": cfg.get("video_model", "jimeng-video-3.0"),
+            "model": video_model,
             "width": self._coerce_int(cfg.get("video_width"), 960),
             "height": self._coerce_int(cfg.get("video_height"), 540),
             "resolution": cfg.get("video_resolution", "720p"),
@@ -827,6 +865,18 @@ class JimengServicePlugin(Star):
         if len(tokens) == 1:
             return tokens[0]
         return tokens
+
+    def _validate_image_model(self, model: str) -> Optional[str]:
+        if model not in self._supported_image_models:
+            choices = "、".join(self._supported_image_models)
+            return f"不支持的图片模型：{model}。可选值：{choices}"
+        return None
+
+    def _validate_video_model(self, model: str) -> Optional[str]:
+        if model not in self._supported_video_models:
+            choices = "、".join(self._supported_video_models)
+            return f"不支持的视频模型：{model}。可选值：{choices}"
+        return None
 
     def _generate_image_with_service(
         self,
