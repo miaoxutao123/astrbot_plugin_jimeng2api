@@ -909,6 +909,7 @@ class JimengServicePlugin(Star):
             result,
             response_format=response_format,
             headline=f"已生成图片 (model={model}, ratio={ratio}, resolution={resolution})",
+            media_type="image",
         )
         if not media_results:
             return [], headline, None
@@ -950,6 +951,7 @@ class JimengServicePlugin(Star):
                 "图生图任务完成 "
                 f"(model={model}, ratio={ratio}, resolution={resolution}, 源图数量={len(images)})"
             ),
+            media_type="image",
         )
         if not media_results:
             return [], headline, None
@@ -987,6 +989,7 @@ class JimengServicePlugin(Star):
                 "视频生成任务完成 "
                 f"(model={model}, size={width}x{height}, resolution={resolution})"
             ),
+            media_type="video",
         )
         if not media_results:
             return [], headline, None
@@ -998,13 +1001,29 @@ class JimengServicePlugin(Star):
         *,
         response_format: str,
         headline: str,
+        media_type: str = "image",
     ) -> Tuple[List[MessageEventResult], Optional[str]]:
         data = payload.get("data") or []
         if not isinstance(data, list) or not data:
             return [], "Jimeng 返回结果为空。"
 
         media_messages: List[MessageEventResult] = []
-        if response_format == "b64_json":
+        if media_type == "video":
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                url_val = item.get("url")
+                if isinstance(url_val, str) and url_val.startswith("http"):
+                    media_messages.append(MessageEventResult().message(url_val))
+                    continue
+                b64_val = item.get("b64_json")
+                if isinstance(b64_val, str) and b64_val:
+                    media_messages.append(
+                        MessageEventResult().message(
+                            f"视频 Base64 数据长度：{len(b64_val)}"
+                        )
+                    )
+        elif response_format == "b64_json":
             for item in data:
                 if isinstance(item, dict) and item.get("b64_json"):
                     media_messages.append(
@@ -1018,6 +1037,5 @@ class JimengServicePlugin(Star):
                     )
 
         if not media_messages:
-            return [], "Jimeng 返回结果中缺少可用数据。"
-
+            return [], "Jimeng 返回结果缺少可用数据。"
         return media_messages, headline
