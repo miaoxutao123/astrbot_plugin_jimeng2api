@@ -1,0 +1,67 @@
+{
+  "session_ids": {
+    "type": "list",
+    "description": "用于鉴权的 Jimeng session token 列表。",
+    "default": []
+  },
+  "auto_start": {
+    "type": "bool",
+    "description": "插件加载时自动启动 Jimeng 服务。",
+    "default": false
+  },
+  "image_model": {
+    "type": "string",
+    "description": "文生图默认使用的模型。可选值：jimeng-4.0、jimeng-3.1、jimeng-3.0、jimeng-2.1、jimeng-2.0-pro、jimeng-2.0、jimeng-1.4、jimeng-xl-pro（国际站额外支持 nanobanana）。",
+    "default": "jimeng-4.0"
+  },
+  "image_ratio": {
+    "type": "string",
+    "description": "文生图默认生成的画面比例。",
+    "default": "1:1"
+  },
+  "image_resolution": {
+    "type": "string",
+    "description": "文生图默认生成的分辨率。",
+    "default": "1k"
+  },
+  "image_response_format": {
+    "type": "string",
+    "description": "文生图默认返回格式（url 或 b64_json）。",
+    "default": "url"
+  },
+  "image_negative_prompt": {
+    "type": "text",
+    "description": "可选的负面提示词，会附加到文生图请求。",
+    "default": ""
+  },
+  "image_sample_strength": {
+    "type": "float",
+    "description": "文生图默认采样强度。",
+    "default": 0.5
+  },
+  "video_model": {
+    "type": "string",
+    "description": "文生视频默认使用的模型。可选值：jimeng-video-3.0-pro、jimeng-video-3.0、jimeng-video-2.0、jimeng-video-2.0-pro。",
+    "default": "jimeng-video-3.0"
+  },
+  "video_width": {
+    "type": "int",
+    "description": "文生视频默认的宽度（像素）。",
+    "default": 960
+  },
+  "video_height": {
+    "type": "int",
+    "description": "文生视频默认的高度（像素）。",
+    "default": 540
+  },
+  "video_resolution": {
+    "type": "string",
+    "description": "文生视频默认的分辨率标签。",
+    "default": "720p"
+  },
+  "video_response_format": {
+    "type": "string",
+    "description": "文生视频默认返回格式（url 或 b64_json）。",
+    "default": "url"
+  }
+}
