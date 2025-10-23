@@ -10,8 +10,12 @@ from astrbot.core.config import AstrBotConfig
 from astrbot.core.star.filter.command import GreedyStr
 from astrbot.core.message.components import Image, Plain, Reply
 
-from pyjimeng.errors import JimengAPIError
-from pyjimeng.jimeng_service import JimengAPIService
+try:
+    from .pyjimeng.errors import JimengAPIError
+    from .pyjimeng.jimeng_service import JimengAPIService
+except ImportError:  # pragma: no cover - fallback for direct execution
+    from pyjimeng.errors import JimengAPIError  # type: ignore
+    from pyjimeng.jimeng_service import JimengAPIService  # type: ignore
 
 
 @register(
