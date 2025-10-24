@@ -8,7 +8,7 @@ from astrbot.api.event import AstrMessageEvent, MessageEventResult, filter
 from astrbot.api.star import Context, Star, register
 from astrbot.core.config import AstrBotConfig
 from astrbot.core.star.filter.command import GreedyStr
-from astrbot.core.message.components import Image, Plain, Reply
+from astrbot.core.message.components import Image, Plain, Reply, Video
 
 try:
     from .pyjimeng.errors import JimengAPIError
@@ -18,6 +18,8 @@ except ImportError:  # pragma: no cover - fallback for direct execution
     from pyjimeng.errors import JimengAPIError  # type: ignore
     from pyjimeng.jimeng_service import JimengAPIService  # type: ignore
     from pyjimeng import constants as jimeng_constants  # type: ignore
+
+MediaMessage = Union[MessageEventResult, Tuple[MessageEventResult, MessageEventResult]]
 
 
 @register(
@@ -197,7 +199,15 @@ class JimengServicePlugin(Star):
             yield event.plain_result(error_message)
             return
         for item in media_results:
-            yield item
+            if isinstance(item, tuple):
+                primary, fallback = item
+                try:
+                    yield primary
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("发送视频失败，降级为链接：%s", exc)
+                    yield fallback
+            else:
+                yield item
         if headline:
             yield event.plain_result(headline)
 
@@ -264,7 +274,15 @@ class JimengServicePlugin(Star):
             yield event.plain_result(error_message)
             return
         for item in media_results:
-            yield item
+            if isinstance(item, tuple):
+                primary, fallback = item
+                try:
+                    yield primary
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("发送视频失败，降级为链接：%s", exc)
+                    yield fallback
+            else:
+                yield item
         if headline:
             yield event.plain_result(headline)
 
@@ -309,7 +327,15 @@ class JimengServicePlugin(Star):
             yield event.plain_result(error_message)
             return
         for item in media_results:
-            yield item
+            if isinstance(item, tuple):
+                primary, fallback = item
+                try:
+                    yield primary
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("发送视频失败，降级为链接：%s", exc)
+                    yield fallback
+            else:
+                yield item
         if headline:
             yield event.plain_result(headline)
 
@@ -478,7 +504,15 @@ class JimengServicePlugin(Star):
             yield event.plain_result(error_message)
             return
         for item in media_results:
-            yield item
+            if isinstance(item, tuple):
+                primary, fallback = item
+                try:
+                    yield primary
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("发送视频失败，降级为链接：%s", exc)
+                    yield fallback
+            else:
+                yield item
         if headline:
             yield event.plain_result(headline)
         return
@@ -890,7 +924,7 @@ class JimengServicePlugin(Star):
         negative_prompt: str,
         sample_strength: float,
         session_override: Optional[Union[str, List[str]]],
-    ) -> Tuple[List[MessageEventResult], Optional[str], Optional[str]]:
+    ) -> Tuple[List[MediaMessage], Optional[str], Optional[str]]:
         try:
             result = service.generate_image(
                 prompt=prompt,
@@ -928,7 +962,7 @@ class JimengServicePlugin(Star):
         negative_prompt: str,
         sample_strength: float,
         session_override: Optional[Union[str, List[str]]],
-    ) -> Tuple[List[MessageEventResult], Optional[str], Optional[str]]:
+    ) -> Tuple[List[MediaMessage], Optional[str], Optional[str]]:
         try:
             result = service.image_composition(
                 prompt=prompt,
@@ -968,7 +1002,7 @@ class JimengServicePlugin(Star):
         resolution: str,
         response_format: str,
         session_override: Optional[Union[str, List[str]]],
-    ) -> Tuple[List[MessageEventResult], Optional[str], Optional[str]]:
+    ) -> Tuple[List[MediaMessage], Optional[str], Optional[str]]:
         try:
             result = service.generate_video(
                 prompt=prompt,
@@ -1002,19 +1036,25 @@ class JimengServicePlugin(Star):
         response_format: str,
         headline: str,
         media_type: str = "image",
-    ) -> Tuple[List[MessageEventResult], Optional[str]]:
+    ) -> Tuple[List[MediaMessage], Optional[str]]:
         data = payload.get("data") or []
         if not isinstance(data, list) or not data:
             return [], "Jimeng 返回结果为空。"
 
-        media_messages: List[MessageEventResult] = []
+        media_messages: List[MediaMessage] = []
         if media_type == "video":
             for item in data:
                 if not isinstance(item, dict):
                     continue
                 url_val = item.get("url")
                 if isinstance(url_val, str) and url_val.startswith("http"):
-                    media_messages.append(MessageEventResult().message(url_val))
+                    fallback = MessageEventResult().message(url_val)
+                    try:
+                        primary = MessageEventResult()
+                        primary.chain = [Video.fromURL(url_val)]
+                        media_messages.append((primary, fallback))
+                    except Exception:  # noqa: BLE001
+                        media_messages.append(fallback)
                     continue
                 b64_val = item.get("b64_json")
                 if isinstance(b64_val, str) and b64_val:
@@ -1035,7 +1075,6 @@ class JimengServicePlugin(Star):
                     media_messages.append(
                         MessageEventResult().url_image(item["url"])
                     )
-
         if not media_messages:
             return [], "Jimeng 返回结果缺少可用数据。"
         return media_messages, headline
